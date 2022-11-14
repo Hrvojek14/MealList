@@ -17,10 +17,6 @@ class Meals extends Model
         return $this->hasMany('App\Models\MealIngredient','meal_slug','slug');
     }
 
-    public function meal_tag()  {
-        return $this->hasMany('App\Models\MealTag','meal_slug','slug');
-    }
-
     public function meal_translation()  {
         return $this->hasMany('App\Models\MealTranslation','meal_slug','slug');
     }

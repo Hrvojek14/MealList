@@ -15,9 +15,12 @@ class Tags extends Model
 
     //protected $visible = ['id', 'slug'];
 
-    public function tag_translation()
-    {
-        return $this->belongsTo('App\Models\TagTranslation','slug','slug');
+    public function tag_translation()  {
+        return $this->hasMany(TagTranslation::class, 'slug','tag_slug');
     }
 
+    public function meals()
+    {
+        return $this->belongsToMany(Meals::class, 'meals_tags', 'tag_slug', 'meal_slug');
+    }
 }

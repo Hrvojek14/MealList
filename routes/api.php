@@ -19,7 +19,7 @@ Route::group(['middleware' => 'api', 'namespace' => 'App\Http\Controllers'], fun
     // API status
     Route::get('/', 'ApiController@index');
     
-    Route::post('/meals', 'ApiController@meals');
+    Route::get('/meals', ['as' => 'search', 'uses' => 'ApiController@meals']);
 
     Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
         return $request->user();

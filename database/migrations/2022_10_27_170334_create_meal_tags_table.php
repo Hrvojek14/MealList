@@ -13,7 +13,7 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('meal_tags', function (Blueprint $table) {
+        Schema::create('meals_tags', function (Blueprint $table) {
             $table->id();
             $table->string('meal_slug');
             $table->string('tag_slug');

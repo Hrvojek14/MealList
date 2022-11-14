@@ -29,7 +29,7 @@ class MealsSeeder extends Seeder
 
         foreach(range(1, 20) as $v){
             $faker = Faker::create();
-            $num_categories = $faker->numberBetween(0, 5);
+            $num_categories = $faker->numberBetween(0, 1);
             $slug = 'meal-'.$v;
             
             Meals::insert([
@@ -45,13 +45,11 @@ class MealsSeeder extends Seeder
                 ]);
             }
 
-            if($num_categories > 0){
-                for($i=0; $i<$num_categories; $i++){
-                    MealCategory::insert([
-                        'meal_slug' => $slug,
-                        'category_slug' => 'category-'.$faker->numberBetween(1, 20),
-                    ]);
-                }
+            if($num_categories == 1){
+                MealCategory::insert([
+                    'meal_slug' => $slug,
+                    'category_slug' => 'category-'.$faker->numberBetween(1, 20),
+                ]);
             }
             
             $num_tags = $faker->numberBetween(1, 5);

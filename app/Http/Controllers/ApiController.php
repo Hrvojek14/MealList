@@ -11,7 +11,11 @@ use App\Models\Ingredients;
 use App\Models\Meals;
 use App\Models\MealTranslation;
 use App\Models\MealIngredient;
+use App\Models\Tags;
 use Illuminate\Pagination\Paginator;
+use App\Http\Requests\ApiRequest;
+use App\Helpers\ApiHelper;
+use App\Http\Resources\DataResource;
 use DB;
 
 
@@ -31,70 +35,88 @@ class ApiController extends BaseController
         ], 200);
     }
     
-    public function meals(Request $request){
+    public function meals(ApiRequest $request){
 
         $lang = $request->input('lang', FALSE);
         $tags = $request->input('tags', FALSE);
+        $category = $request->input('category', FALSE);
         $diff_time = $request->input('diff_time', FALSE);
         $per_page = $request->input('per_page', FALSE);
         $page = $request->input('page', FALSE);
         $withs = $request->input('with', FALSE);
         
-        $tags = explode(',', $tags);
-        $withs = explode(',', $withs);
+        $tags_array = ApiHelper::get_array($tags);
+        $categories_array = ApiHelper::get_array($category);
+        $withs = ApiHelper::get_array($withs); 
         
-        $filterLang = ($lang && $lang != NULL && $lang != '') ? $lang : false;
-        $filterTags = ($tags && $tags != NULL && $tags != '') ? $tags : false;
-        $filterDiffTime = ($diff_time && $diff_time != NULL && $diff_time != '') ? $diff_time : 'created';
-        $filterPerPage = ($per_page && $per_page != NULL && $per_page != '') ? $per_page : false;
-        $filterPage = ($page && $page != NULL && $page != '') ? $page : false;
-        
-        $filterIngredients = $filterCategory = $filterTagsW = null;
+        $withIngredients = $withCategory = $withTags = null;
         foreach($withs as $with){
-            if($with == 'ingredients')  $filterIngredients = ($with && $with != NULL && $with != '') ? $with : false;
-            if($with == 'category')  $filterCategory = ($with && $with != NULL && $with != '') ? $with : false;
-            if($with == 'tags')  $filterTagsW = ($with && $with != NULL && $with != '') ? $with : false;
+            if($with == 'ingredients')
+                {
+                    $withIngredients = ($with && $with != NULL && $with != '') ? $with : false;
+                }
+            if($with == 'category')
+            {
+                $withCategory = ($with && $with != NULL && $with != '') ? $with : false;
+            }
+            if($with == 'tags')
+            {
+                $withTags = ($with && $with != NULL && $with != '') ? $with : false;
+            }
         }
 
-        Paginator::currentPageResolver(function () use ($filterPage) {
-            return $filterPage;
+        Paginator::currentPageResolver(function () use ($page) {
+            return $page;
         });
 
         $result = Meals::select('meals.id', 'mt.title', 'mt.description', 'meals.slug')
-                        ->when($filterIngredients, function ($q) use ($filterLang) {
-                            return $q->with(['ingredients' => function ($q) use ($filterLang) {
+                        ->when($tags, function ($query) use ($tags_array) {
+                            return $query->whereIn('tags.id', $tags_array);
+                        })
+                        ->when($category, function ($query) use ($categories_array) {
+                            return $query->whereIn('categories.id', $categories_array);
+                        })
+                        ->when($withIngredients, function ($q) use ($lang) {
+                            return $q->with(['ingredients' => function ($q) use ($lang) {
                                     return $q->leftJoin('ingredient_translations as it', 'ingredients.slug', 'it.slug')
                                             ->select('it.id', 'it.title', 'ingredients.slug')
-                                            ->where('it.locale', $filterLang);
+                                            ->where('it.locale', $lang);
                                 }
                             ]);
                         })
-                        ->when($filterTagsW, function ($q) use ($filterLang) {
-                            return $q->with(['tags' => function ($q) use ($filterLang) {
+                        ->when($withTags, function ($q) use ($lang, $tags, $tags_array) {
+                            return $q->with(['tags' => function ($q) use ($lang, $tags, $tags_array) {
                                     return $q->leftJoin('tag_translations as tt', 'tags.slug', 'tt.slug')
                                             ->select('tt.id', 'tt.title', 'tags.slug')
-                                            ->where('tt.locale', $filterLang);
+                                            ->where('tt.locale', $lang)
+                                            ->when($tags, function ($query) use ($tags_array) {
+                                                return $query->whereIn('tags.id', $tags_array);
+                                            });
                                 }
                             ]);
                         })
-                        ->when($filterCategory, function ($q) use ($filterLang) {
-                            return $q->with(['categories' => function ($q) use ($filterLang) {
+                        ->when($withCategory, function ($q) use ($lang, $category, $categories_array) {
+                            return $q->with(['categories' => function ($q) use ($lang, $category, $categories_array) {
                                     return $q->leftJoin('category_translations as ct', 'categories.slug', 'ct.slug')
                                             ->select('ct.id', 'ct.title', 'categories.slug')
-                                            ->where('ct.locale', $filterLang);
+                                            ->where('ct.locale', $lang)
+                                            ->when($category, function ($query) use ($categories_array) {
+                                                return $query->whereIn('categories.id', $categories_array);
+                                            });
                                 }
                             ]);
                         })
-                        ->where('mt.locale', $filterLang)
-                        ->when($filterTags, function ($q) use ($filterTags) {
-                            $q->whereIn('tags.id', $filterTags);
-                        })
+                        ->where('mt.locale', $lang)
                         ->leftJoin('meal_translations as mt', 'meals.slug', 'mt.slug')
-                        ->leftJoin('meal_tags as mta', 'meals.slug', 'mta.meal_slug')
+                        ->leftJoin('meals_tags as mta', 'meals.slug', 'mta.meal_slug')
                         ->leftJoin('tags', 'mta.tag_slug', 'tags.slug')
-                        ->paginate($filterPerPage);
+                        ->leftJoin('meal_categories as mca', 'meals.slug', 'mca.meal_slug')
+                        ->leftJoin('categories', 'mca.category_slug', 'categories.slug')
+                        ->paginate($per_page);
 
-        if($result) return response()->json([$result], 200);
+        if($result){
+            return DataResource::collection($result);
+        }
         else return response()->json(['status' => 'error'], 500);
     }
 
